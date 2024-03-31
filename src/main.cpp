@@ -523,7 +523,7 @@ int main(int argc, const char *argv[])
   memset(fftDataIntegrated, 0, sizeof(float) * FFT_SIZE);
 
   bool bGrabberFollowCaret = true;
-  bool bShowGui = true;
+  bool bShowGui = !externalEditor;
   Timer::Start();
   bool shaderFirstNetworkSend = true;
   float shaderTimeOffset = 0;
@@ -559,17 +559,17 @@ int main(int argc, const char *argv[])
         FILE * f = fopen(shaderFileName.c_str(), "rb");
         if (f)
         {
-          printf("Local shader file changed, reloading...\n");
+          printf("Local shader file changed, reloading...");
           memset(szShader, 0, 65535);
           fread(szShader, 1, 65535, f);
           fclose(f);
           if (Renderer::ReloadShader(szShader, (int)strlen(szShader), szError, 4096))
           {
-            newShader = true;
+            printf("done\n");
           }
           else
           {
-            mDebugOutput.SetText(szError);
+            printf("FAILED\nShader error:\n%s", szError);
           }
         }
       }
@@ -831,7 +831,7 @@ int main(int argc, const char *argv[])
         fNextTick = time + 0.1;
       }
 
-      if (!externalEditor) { mShaderEditor.Paint(); }
+      mShaderEditor.Paint();
       mDebugOutput.Paint();
 
       Renderer::SetTextRenderingViewport(Scintilla::PRectangle(0, 0, Renderer::nWidth, Renderer::nHeight));
