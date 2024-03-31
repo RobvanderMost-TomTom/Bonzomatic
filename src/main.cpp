@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -440,6 +441,8 @@ int main(int argc, const char *argv[])
     printf("Loading Shader: %s \n", shaderFileName.c_str());
   }
 
+  bool externalEditor = CmdHasOption(argc, argv, "externalEditor");
+
   bool shaderInitSuccessful = false;
   char szShader[65535];
   char szError[4096];
@@ -527,6 +530,8 @@ int main(int argc, const char *argv[])
   float fNextTick = 0.1f;
   float fLastTimeMS = Timer::GetTime();
   float oldtime = Timer::GetTime() / 1000.0;
+  float lastFileCheck = Timer::GetTime();
+  long lastFileModTime = 0;
   while (!Renderer::WantsToQuit())
   {
     
@@ -535,6 +540,40 @@ int main(int argc, const char *argv[])
     float time = Timer::GetTime() / 1000.0; // seconds
     float deltaTime = (time - oldtime);
     Renderer::StartFrame();
+
+    // Update from local file if the file has changed
+    if (externalEditor && Timer::GetTime() - lastFileCheck > 1000.0)
+    {
+      lastFileCheck = Timer::GetTime();
+
+      bool fileChanged = false;
+      struct stat fileCheckResult;
+      if (stat(shaderFileName.c_str(), &fileCheckResult) == 0)
+      {
+        auto modTime = fileCheckResult.st_mtime;
+        fileChanged = modTime != lastFileModTime;
+        lastFileModTime = modTime;
+      }
+
+      if (fileChanged) {
+        FILE * f = fopen(shaderFileName.c_str(), "rb");
+        if (f)
+        {
+          printf("Local shader file changed, reloading...\n");
+          memset(szShader, 0, 65535);
+          fread(szShader, 1, 65535, f);
+          fclose(f);
+          if (Renderer::ReloadShader(szShader, (int)strlen(szShader), szError, 4096))
+          {
+            newShader = true;
+          }
+          else
+          {
+            mDebugOutput.SetText(szError);
+          }
+        }
+      }
+    }
 
     // Networking
     Network::Tick(time);
@@ -792,7 +831,7 @@ int main(int argc, const char *argv[])
         fNextTick = time + 0.1;
       }
 
-      mShaderEditor.Paint();
+      if (!externalEditor) { mShaderEditor.Paint(); }
       mDebugOutput.Paint();
 
       Renderer::SetTextRenderingViewport(Scintilla::PRectangle(0, 0, Renderer::nWidth, Renderer::nHeight));
@@ -897,7 +936,7 @@ int main(int argc, const char *argv[])
 
     Capture::CaptureFrame();
 
-    if (newShader)
+    if (newShader && !externalEditor)
     {
       // Frame render successful, save shader
       FILE * f = fopen(shaderFileName.c_str(),"wb");
