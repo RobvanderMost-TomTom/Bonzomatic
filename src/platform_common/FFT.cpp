@@ -49,7 +49,7 @@ namespace FFT
     fftcfg = kiss_fftr_alloc( FFT_SIZE * 2, false, NULL, NULL );
 
     ma_context_config context_config = ma_context_config_init();
-    context_config.logCallback = OnLog;
+    //context_config.logCallback = OnLog;
     ma_result result = ma_context_init( NULL, 0, &context_config, &context );
     if ( result != MA_SUCCESS )
     {
